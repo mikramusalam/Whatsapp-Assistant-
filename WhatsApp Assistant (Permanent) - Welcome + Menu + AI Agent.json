@@ -1,0 +1,761 @@
+{
+  "name": "WhatsApp Assistant (Permanent) - Welcome + Menu + AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "id": "f4da98ed-19de-46ca-8e53-7afe949394c7",
+      "name": "1. New WhatsApp Message (Trigger)",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        32,
+        640
+      ],
+      "webhookId": "d1d1d1d1-9999-4d00-8000-0000000000aa",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "mS7XvbgNeJ3kMDoH",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d2d2d2d2-0001-4d00-8000-000000000001",
+              "leftValue": "={{ $json.messages ? $json.messages[0].from : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6106e58a-27de-4c52-95c1-9ef6246df322",
+      "name": "2. Is It a Real Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        272,
+        640
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "adf8c6a7-7835-46e2-886d-1b813ed9bd53",
+      "name": "Ignore (delivery receipt)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        272,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        }
+      },
+      "id": "5fd5f52a-40d4-4a7c-9a51-a655d41c14e7",
+      "name": "3. Find Contact in Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        512,
+        640
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// If node 3 found a matching row, it will have come through with a \"Phone\" value.\n// If nobody matched (brand-new number), \"Always Output Data\" still gives us one\n// empty item to work with here - so we check whether Phone is actually filled in.\nconst foundExistingRow = Boolean($json.Phone);\nconst isNew = !foundExistingRow;\n\n// Bring back the original WhatsApp message data (from the very first node),\n// no matter what node 3 returned.\nconst original = $('1. New WhatsApp Message (Trigger)').first().json;\n\nreturn {\n  json: {\n    ...original,\n    is_new: isNew\n  }\n};"
+      },
+      "id": "d1b60522-29b0-45e6-98ad-6eb20e4bb918",
+      "name": "4. Check If New",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d5d5d5d5-0001-4d00-8000-000000000001",
+              "leftValue": "={{ $json.is_new }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ab1afb46-982c-49e0-baa9-15ef3594519e",
+      "name": "5. Is This a New Contact?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        992,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/YOUR_PHONE_NUMBER_ID/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.messages[0].from }}\",\n  \"type\": \"interactive\",\n  \"interactive\": {\n    \"type\": \"button\",\n    \"body\": {\n      \"text\": \"Hi! 👋 Welcome to YOUR INSTITUTE NAME.\\n\\nWhich program are you interested in?\"\n    },\n    \"action\": {\n      \"buttons\": [\n        { \"type\": \"reply\", \"reply\": { \"id\": \"medical\", \"title\": \"🏥 Medical School\" } },\n        { \"type\": \"reply\", \"reply\": { \"id\": \"engineering\", \"title\": \"⚙️ Engineering School\" } },\n        { \"type\": \"reply\", \"reply\": { \"id\": \"business\", \"title\": \"💼 Business School\" } }\n      ]\n    }\n  }\n}",
+        "options": {}
+      },
+      "id": "a9f8a113-4ecc-458f-be42-b3d30edc7862",
+      "name": "6a. Send Welcome + Menu (HTTP Request)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1248,
+        384
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        }
+      },
+      "id": "7e8dfe41-9a6a-404b-a2b2-d1b2432e9987",
+      "name": "7a. Save New Contact",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1488,
+        384
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d7d7d7d7-0001-4d00-8000-000000000001",
+              "leftValue": "={{ $json.messages[0].type }}",
+              "rightValue": "interactive",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "d7d7d7d7-0002-4d00-8000-000000000002",
+              "leftValue": "={{ $json.messages[0].interactive ? $json.messages[0].interactive.type : '' }}",
+              "rightValue": "button_reply",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0819a817-2087-4a03-a7ec-08083b31a4c1",
+      "name": "6b. Did They Tap a Menu Button?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1248,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const selectedOption = $json.messages[0].interactive.button_reply.id;\nconst fromNumber = $json.messages[0].from;\n\nreturn {\n  json: {\n    selected_option: selectedOption,\n    from: fromNumber\n  }\n};"
+      },
+      "id": "bb22d3d4-d028-4a68-9dfb-c261606fe281",
+      "name": "7b. Get Selected Option",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        }
+      },
+      "id": "ddbb07cc-a11c-4114-b4a3-b5745e55a8b5",
+      "name": "8b. Look Up Info in Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        608
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "recipientPhoneNumber": "={{ $('7b. Get Selected Option').item.json.from }}",
+        "textBody": "={{ $json.Info }}\n\nFeel free to ask me anything else about it! 🙂",
+        "additionalFields": {}
+      },
+      "id": "06f99d76-ecfe-4db0-a4bd-f37a4d3bf292",
+      "name": "9b. Send Info Reply (WhatsApp)",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2032,
+        608
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "webhookId": "a19581c0-f2be-4cd2-af8a-d0641e456700",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "D19JsbSgxcXVjEDQ",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const from = $json.messages[0].from;\nconst question = $json.messages[0].text ? $json.messages[0].text.body : '(no text found)';\n\nreturn {\n  json: {\n    from: from,\n    question: question\n  }\n};"
+      },
+      "id": "b3f2a3a5-deb5-4fd9-a48b-e9f5a28d6aeb",
+      "name": "7c. Get Their Question",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.question }}",
+        "options": {
+          "systemMessage": "=You are a friendly WhatsApp assistant for YOUR INSTITUTE NAME.\n\nBefore you answer ANY question about the Medical, Engineering or Business programs (fees, admission, duration, anything program-related), ALWAYS call the \"Look Up School Info\" tool first to check the real information.\n\nOnly answer using what the tool gives you back — never invent facts or guess.\nIf the answer truly isn't in what the tool returns, politely say a team member will follow up with them.\n\nKeep every reply short and warm: 2-3 friendly sentences, simple everyday language, no long paragraphs."
+        }
+      },
+      "id": "4afee17b-cc65-407f-b4e1-091781aeeb13",
+      "name": "8c. AI Agent (Groq + School Info Tool)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1760,
+        960
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "id": "ed9dd983-b2e4-4463-ba52-560131cd9c7e",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1664,
+        1200
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "MdEsH02ZkSq0rdQZ",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this to look up real information about our school programs (medical, engineering, business) — fees, admission requirements, duration, anything program-related. Always check this before answering a program-related question.",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        }
+      },
+      "id": "d359e7a1-ae2f-4293-8c79-c3e5e6e068f5",
+      "name": "School Info Tool (Google Sheet)",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        1920,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const reply = $json.output;\nconst from = $('7c. Get Their Question').first().json.from;\n\nreturn { json: { reply, from } };"
+      },
+      "id": "37a2604d-254d-4c98-921f-636560ebdaed",
+      "name": "9c. Parse AI Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "recipientPhoneNumber": "={{ $json.from }}",
+        "textBody": "={{ $json.reply }}",
+        "additionalFields": {}
+      },
+      "id": "3c1ccd0a-331c-46d5-9ec8-fac794e5d2b0",
+      "name": "10c. Send AI Reply (WhatsApp)",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2304,
+        960
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "webhookId": "424a0a5c-1033-4dc5-ba97-c959d85eb838",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "D19JsbSgxcXVjEDQ",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# STAGE 1 — IS THIS A NEW PERSON?\nEvery message that comes in passes through here first.\n\n**Node 2** filters out WhatsApp's \"delivered\"/\"read\" receipts — only real messages get through.\n\n**Node 3** checks a Google Sheet tab called \"Contacts\" to see if this phone number has messaged before. **Node 4** reads that result and decides new-or-not. This is a REAL record in your Sheet — not memory — so it keeps working correctly even if you edit and reactivate this workflow later.\n\n**Node 5** splits the path: brand-new → go up (say hello). Already talked before → go down.",
+        "height": 340,
+        "width": 900
+      },
+      "id": "341d07f6-ac61-4724-b179-8862be37a10b",
+      "name": "Header Stage 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 6a. SAY HELLO  →  7a. REMEMBER THEM\nOnly fires for a brand-new number.\n\n**6a** sends the welcome text plus 3 tappable buttons.\n**7a** immediately writes their phone number + today's date into the \"Contacts\" tab — this is what makes node 3 recognize them next time.\n\n✏️ **Edit before using:**\n- Swap in your real Phone Number ID (in 6a's URL)\n- Swap in your real institute name (in 6a's message text)\n- Pick your Document + \"Contacts\" sheet in 7a",
+        "height": 300,
+        "width": 300,
+        "color": 4
+      },
+      "id": "e59c1062-4edb-42bf-9b29-48712a52c774",
+      "name": "Note 6a-7a",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1424,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# STAGE 2 — THEY TAPPED A BUTTON\nRuns when someone we've already greeted taps one of the 3 menu buttons.\n\n**7b** figures out which button they tapped. **8b** looks that word up as a row in your \"School Info\" tab. **9b** sends whatever is in that row's \"Info\" column back as a normal text message.\n\nSimple lookup — no AI involved here.",
+        "height": 190,
+        "width": 900,
+        "color": 3
+      },
+      "id": "8f050d23-de64-4d31-8a9c-33447f0db41d",
+      "name": "Header Stage 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2304,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# STAGE 3 — THEY ASKED SOMETHING IN THEIR OWN WORDS\nRuns when someone we've already greeted types anything other than tapping a button — e.g. \"how much are the engineering fees?\"\n\n**7c** grabs their exact question.\n\n**8c is an AI AGENT** — a smart assistant that can decide, by itself, whether it needs to check a fact before replying. It has two helpers plugged in underneath:\n• **Groq Chat Model** — the \"brain\" that reads the question and writes the reply.\n• **School Info Tool** — the SAME \"School Info\" sheet tab from Stage 2. The agent only answers using what this tool gives back — that's what \"RAG\" means.\n\n**9c** pulls the plain-text reply out. **10c** sends it back on WhatsApp.\n\n✏️ **Edit before using:** replace YOUR INSTITUTE NAME inside node 8c's system message box.",
+        "height": 380,
+        "width": 1200,
+        "color": 5
+      },
+      "id": "d3066054-98a3-4e11-98e7-9bd7acae1dd0",
+      "name": "Header Stage 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2512,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🧠 GROQ CHAT MODEL\nThe \"brain\" plugged into the AI Agent above. Groq is a free/very cheap AI provider.\n\nNothing to change here except the credential (see the credentials note below).",
+        "height": 220,
+        "width": 260,
+        "color": 6
+      },
+      "id": "780be347-836a-427f-b42c-ee0f43622b3b",
+      "name": "Note Groq Model",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        1440
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📖 SCHOOL INFO TOOL\nThe exact same \"School Info\" sheet tab as node 8b, wired in as a tool the AI can use.\n\nPick the same Document + Sheet here as in 8b. Nothing else to change — the description telling the AI when to use it is already written.",
+        "height": 220,
+        "width": 300,
+        "color": 6
+      },
+      "id": "a1440b9c-708d-4691-8eec-6afcc4d24420",
+      "name": "Note School Tool",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        1440
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## GOOGLE SHEET SETUP — 2 TABS IN ONE FILE\n\n**Tab 1: \"School Info\"** (used by nodes 8b + the School Info Tool)\nOption | Info\nmedical | (info)\nengineering | (info)\nbusiness | (info)\n⚠️ Option values must exactly match: medical, engineering, business (lowercase).\n\n**Tab 2: \"Contacts\"** (used by nodes 3 + 7a)\nPhone | FirstContactAt\n(starts empty — the workflow fills this in by itself as people message you)\n\nCreate both tabs before you start filling in nodes.",
+        "height": 340,
+        "width": 320,
+        "color": 2
+      },
+      "id": "9a40c01f-706c-4ce1-954c-1f387caffd52",
+      "name": "Note Sheet",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        992,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# 🛡️ WHY THIS VERSION IS SAFE TO LEAVE RUNNING\n\n1. **Contacts are remembered in your real Google Sheet** (Tab 2), not in n8n's temporary memory. Editing or reactivating this workflow will NEVER cause everyone to be \"re-welcomed.\"\n\n2. **Every node that talks to an outside service** (WhatsApp, Google Sheets, the AI) is set to **automatically retry twice, 2 seconds apart**, before giving up. Most brief hiccups (a slow response, a momentary network blip) fix themselves without anyone noticing.\n\n3. **If a node still fails after retrying**, this workflow stops that one run and hands off to a separate companion workflow — \"WhatsApp Bot Error Notifier\" — which emails the admin automatically. That's a SEPARATE file. See its own sticky notes for the one setup step needed to connect it (Settings → Error Workflow).\n\n✅ This does NOT mean nothing can ever go wrong — if Meta, Groq, or Google itself has an outage, or your WhatsApp token expires, this workflow still can't send messages during that time. What it DOES mean: you'll find out immediately by email instead of only noticing when a student complains days later.",
+        "height": 420,
+        "width": 1200
+      },
+      "id": "8f269526-57d3-4679-8a6d-a1d9ce5ba8eb",
+      "name": "Note Reliability",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# 🔑 EVERY CREDENTIAL YOU NEED, IN ONE PLACE\nThis workflow needs 4 different credentials. Here's exactly what each one is, where to get it, and what to type into n8n.\n\n────────────────────────────\n\n### 1️⃣ WHATSAPP OAUTH API  →  Node 1 (the trigger)\nClick the node → Credential → Create New:\n- **Client ID** → your Meta App ID (developers.facebook.com → your app → App settings → Basic)\n- **Client Secret** → your Meta App Secret (same page)\n\n### 2️⃣ WHATSAPP API  →  Nodes 9b and 10c (reuse the SAME one on both)\n- **Access Token** → your permanent WhatsApp access token\n- **Business Account ID** → your WABA ID (Meta → your app → WhatsApp → API Setup)\nAfter saving, pick your real number from the \"Phone Number ID\" dropdown that appears.\n\n### 3️⃣ HEADER AUTH  →  Node 6a (the HTTP Request node)\n- **Name** → Authorization\n- **Value** → Bearer  followed by your access token (one space after \"Bearer\")\n\n### 4️⃣ GOOGLE SHEETS ACCOUNT  →  Nodes 3, 7a, 8b, and the School Info Tool (all FOUR reuse the same sign-in)\nClick any one → Credential → Sign in with Google → pick the account that owns your Sheet → allow access. Then just select that same credential on the other three.\n\n### 5️⃣ GROQ API  →  the Groq Chat Model node\n1. console.groq.com → sign up (free) → API Keys → Create API Key\n2. Copy the key (shown only once)\n3. Click the Groq Chat Model node → Credential → Create New → paste into **API Key** → Save\n\n────────────────────────────\n💡 Once you create a credential, n8n remembers it — next time just pick it from the dropdown instead of making a new one.",
+        "height": 900,
+        "width": 1500,
+        "color": 7
+      },
+      "id": "975911a2-64ba-48fe-bdfa-ebf32fc6b613",
+      "name": "ALL CREDENTIALS CHEAT-SHEET",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1824
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "1. New WhatsApp Message (Trigger)": {
+      "main": [
+        [
+          {
+            "node": "2. Is It a Real Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Is It a Real Message?": {
+      "main": [
+        [
+          {
+            "node": "3. Find Contact in Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignore (delivery receipt)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Find Contact in Sheet": {
+      "main": [
+        [
+          {
+            "node": "4. Check If New",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Check If New": {
+      "main": [
+        [
+          {
+            "node": "5. Is This a New Contact?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Is This a New Contact?": {
+      "main": [
+        [
+          {
+            "node": "6a. Send Welcome + Menu (HTTP Request)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "6b. Did They Tap a Menu Button?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6a. Send Welcome + Menu (HTTP Request)": {
+      "main": [
+        [
+          {
+            "node": "7a. Save New Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6b. Did They Tap a Menu Button?": {
+      "main": [
+        [
+          {
+            "node": "7b. Get Selected Option",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "7c. Get Their Question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7b. Get Selected Option": {
+      "main": [
+        [
+          {
+            "node": "8b. Look Up Info in Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8b. Look Up Info in Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "9b. Send Info Reply (WhatsApp)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7c. Get Their Question": {
+      "main": [
+        [
+          {
+            "node": "8c. AI Agent (Groq + School Info Tool)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "8c. AI Agent (Groq + School Info Tool)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "School Info Tool (Google Sheet)": {
+      "ai_tool": [
+        [
+          {
+            "node": "8c. AI Agent (Groq + School Info Tool)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8c. AI Agent (Groq + School Info Tool)": {
+      "main": [
+        [
+          {
+            "node": "9c. Parse AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9c. Parse AI Reply": {
+      "main": [
+        [
+          {
+            "node": "10c. Send AI Reply (WhatsApp)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8f2dce33-85c4-433d-b707-e52aa265e49e",
+  "meta": {
+    "instanceId": "6bd2e514fea1cb7e04e5220137f233921f7ee94c6124a7cf7b64b21cb98b56c3"
+  },
+  "nodeGroups": [],
+  "id": "IOA82os4sArEVy5O",
+  "tags": []
+}
